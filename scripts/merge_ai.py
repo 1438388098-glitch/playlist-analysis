@@ -78,6 +78,7 @@ def build_top_picks(playlist, annot, n, k=30):
 
     规则：每曲风至少 1 首（从高分取），同一歌手最多 2 首，情绪尽量均衡，
     再从剩余高分池补齐。最终按综合分从高到低排序输出 rank。
+    每首含 `reason`（空字符串），由主代理补充推荐理由。
     """
     cur_year = 2026
     songs = playlist["songs"]
@@ -113,6 +114,7 @@ def build_top_picks(playlist, annot, n, k=30):
             "url": s.get("url") or "",
             "genre": normalize_genre(a.get("genre") or "流行/其他"),
             "mood": a.get("mood") or "中性",
+            "theme": a.get("theme") or "",
             "score": round(score, 4),
         })
 
@@ -166,6 +168,8 @@ def build_top_picks(playlist, annot, n, k=30):
             "url": r["url"],
             "genre": r["genre"],
             "mood": r["mood"],
+            "theme": r.get("theme") or "",
+            "reason": "",
         })
     return rows
 
@@ -189,11 +193,23 @@ def main():
         sys.exit("歌单为空")
 
     # 歌手聚合标注（P0-1）
+    # 脚本清单 artists.json 提供 appear/频次；AI 聚合标注 ai/artists.json 提供 genre/tier
     artist_map = {}
     artists_path = os.path.join(base, "artists.json")
     if os.path.exists(artists_path):
         ad = load_json(artists_path)
         artist_map = {a["name"]: a for a in ad.get("artists", [])}
+    ai_artists_path = os.path.join(base, "ai", "artists.json")
+    if os.path.exists(ai_artists_path):
+        aad = load_json(ai_artists_path)
+        for a in aad.get("artists", []):
+            name = a["name"]
+            if name not in artist_map:
+                artist_map[name] = {"name": name, "appear": 0, "lead": 0,
+                                    "sample_titles": [], "year_min": None, "year_max": None}
+            for key in ("genre", "mood_hint", "tier", "tier_note"):
+                if a.get(key):
+                    artist_map[name][key] = a[key]
 
     # 收集所有块标注
     annot = {}
@@ -206,6 +222,7 @@ def main():
         print("WARN 缺标注 {} 首，将用兜底值填充".format(len(missing)))
 
     genre_c, type_c, mood_c, scene_c = Counter(), Counter(), Counter(), Counter()
+    theme_c = Counter()
     valence_raw, energy_raw = [], []
     for i in range(n):
         a = annot.get(i, {})
@@ -213,6 +230,8 @@ def main():
         type_c[a.get("type") or "录音室版"] += 1
         mood_c[a.get("mood") or "中性"] += 1
         scene_c[a.get("scene") or "日常聆听"] += 1
+        if a.get("theme"):
+            theme_c[a["theme"]] += 1
         valence_raw.append(float(a.get("valence", 0.5)))
         energy_raw.append(float(a.get("energy", 0.5)))
 
@@ -224,6 +243,24 @@ def main():
              "valence_avg": round(statistics.mean(valence_raw), 2),
              "energy_avg": round(statistics.mean(energy_raw), 2)}
     scenes = {"rows": make_rows(scene_c, n)}
+    themes = {"rows": make_rows(theme_c, n),
+              "diversity": entropy_diversity(theme_c, n)} if theme_c else {"rows": [], "diversity": 0.0}
+
+    # 主题 × 曲风 交叉矩阵（A1）
+    theme_x_genre = {"rows": []}
+    if theme_c:
+        tg_count = {}
+        for i in range(n):
+            a = annot.get(i, {})
+            t = a.get("theme")
+            if not t:
+                continue
+            g = normalize_genre(a.get("genre") or "流行/其他")
+            tg_count[(t, g)] = tg_count.get((t, g), 0) + 1
+        theme_x_genre["rows"] = [
+            {"theme": t, "genre": g, "count": c}
+            for (t, g), c in sorted(tg_count.items(), key=lambda x: -x[1])
+        ][:40]
 
     # 曲风×年代 交叉矩阵（P1-7）
     genre_x_year = {"decades": [], "rows": []}
@@ -268,15 +305,76 @@ def main():
 
     # 歌手→风格映射（供报告"歌手风格"展示）
     artist_genres = []
+    artist_tiers = {"rows": [], "artists": []}
+    tier_map = {}
     if artist_map:
         for a in list(artist_map.values())[:40]:
+            tier = a.get("tier")
+            if tier and a["name"] not in tier_map:
+                tier_map[a["name"]] = tier
             if a["appear"] >= 3:
                 artist_genres.append({
                     "name": a["name"],
                     "appear": a["appear"],
                     "titles": a.get("sample_titles", [])[:2],
-                    "genre": None,  # 由主代理从子代理标注中填充
+                    "genre": a.get("genre"),
+                    "tier": a.get("tier") or None,
                 })
+    if tier_map:
+        tier_c = Counter(tier_map.values())
+        artist_tiers = {
+            "rows": make_rows(tier_c, sum(tier_c.values())),
+            "artists": [{"name": k, "tier": v} for k, v in tier_map.items()],
+        }
+
+    # 叙事弧线分段（A3）：按曲序把情绪/能量均分为 8 段，供主代理判叙事类型
+    narrative = None
+    if len(valence_raw) >= 8:
+        seg = 8
+        seg_len = math.ceil(n / seg)
+        segments = []
+        for s in range(0, n, seg_len):
+            chunk_v = valence_raw[s:s + seg_len]
+            chunk_e = energy_raw[s:s + seg_len]
+            if not chunk_v:
+                continue
+            segments.append({
+                "from": s + 1, "to": min(s + seg_len, n),
+                "valence": round(statistics.mean(chunk_v), 3),
+                "energy": round(statistics.mean(chunk_e), 3),
+            })
+        narrative = {"segments": segments, "verdict": "", "detail": ""}
+
+    # 冷门好歌（A2）：tier=小众宝藏/新锐 或 非主流曲风 + 低热度，按综合分挑 10 首
+    hidden_gems = []
+    if artist_map:
+        low_tier = {name for name, t in tier_map.items() if t in ("小众宝藏", "新锐")}
+        cands = []
+        for s in playlist["songs"]:
+            a = annot.get(s["index"], {})
+            g = normalize_genre(a.get("genre") or "流行/其他")
+            lead = (s.get("artists") or [""])[0]
+            if not lead:
+                continue
+            if lead in low_tier or g not in ("流行/其他",):
+                pop = s.get("popularity")
+                cands.append({
+                    "index": s["index"], "title": s.get("title") or "",
+                    "artists": " / ".join(s.get("artists") or []),
+                    "genre": g, "mood": a.get("mood") or "",
+                    "year": s.get("year"), "popularity": pop,
+                    "url": s.get("url") or "",
+                    "_pop": pop if pop is not None else 0,
+                })
+        cands.sort(key=lambda x: -x["_pop"])
+        seen = set()
+        for c in cands:
+            if len(hidden_gems) >= 10:
+                break
+            if c["title"] in seen:
+                continue
+            seen.add(c["title"])
+            hidden_gems.append({k: v for k, v in c.items() if not k.startswith("_")})
 
     # 精选 Top N：综合推荐（P 新增）
     # 评分 = 热度40% + 年份新近度15% + 合作5%，再用贪心多样化选出
@@ -287,6 +385,8 @@ def main():
         "types": types,
         "moods": moods,
         "scenes": scenes,
+        "themes": themes,
+        "theme_x_genre": theme_x_genre,
         "redundancy": {"value": redundancy, "level": redundancy_level},
         "genre_x_year": genre_x_year,
         "collab_network": collab_network,
@@ -294,6 +394,12 @@ def main():
     }
     if artist_genres:
         out["artist_genres"] = artist_genres
+    if artist_tiers["rows"]:
+        out["artist_tiers"] = artist_tiers
+    if narrative:
+        out["narrative"] = narrative
+    if hidden_gems:
+        out["hidden_gems"] = hidden_gems
 
     path = os.path.join(base, "ai_analysis.json")
     with open(path, "w", encoding="utf-8") as f:
@@ -310,6 +416,14 @@ def main():
     if collab_network:
         print("  - 合作网络：{} 节点 / {} 边".format(
             len(collab_network["nodes"]), len(collab_network["edges"])))
+    if themes["rows"]:
+        print("  - 主题 Top5：{}".format("、".join(t["name"] for t in themes["rows"][:5])))
+    if artist_tiers["rows"]:
+        print("  - 艺人分级：{}".format("、".join("{} {}".format(t["name"], t["count"]) for t in artist_tiers["rows"])))
+    if hidden_gems:
+        print("  - 冷门好歌：{} 首候选".format(len(hidden_gems)))
+    if narrative:
+        print("  - 叙事弧线：{} 段情绪/能量分段".format(len(narrative["segments"])))
     print("\n下一步：主代理补充 genre_overview/mood_overview/profile/summary/insights"
           " 后运行渲染。")
 

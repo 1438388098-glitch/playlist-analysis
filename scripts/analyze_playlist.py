@@ -864,6 +864,15 @@ def analyze(pl: Playlist) -> Dict[str, Any]:
                       "lang_diversity": round(lang_diversity, 2)},
         "insights": insights,
         "cloud": build_word_cloud(songs, pl.tags),
+        "themes": {"rows": [], "diversity": 0.0},
+        "theme_x_genre": {"rows": []},
+        "artist_tiers": {"rows": [], "artists": []},
+        "narrative": None,
+        "hidden_gems": [],
+        "share_copy": [],
+        "golden_lines": [],
+        "audience": [],
+        "theme_overview": "",
         "top_songs": [{
             "rank": i + 1,
             "title": s.title,
@@ -1319,6 +1328,17 @@ def render_markdown(pl: Playlist, a: Dict[str, Any], fetched_at: str) -> str:
     lines.append(a["summary"])
     lines.append("")
 
+    if a.get("golden_lines"):
+        lines.append("## 金句精选")
+        for g in a["golden_lines"]:
+            lines.append("- 「{}」—— {}".format(g["line"], g.get("song", "")))
+        lines.append("")
+
+    if a.get("audience"):
+        lines.append("## 适听人群")
+        lines.append("`{}`".format("`  `".join(a["audience"])))
+        lines.append("")
+
     lines.append("## 口味画像")
     lines.append("`{}`".format("`  `".join(a["profile"])))
     lines.append("")
@@ -1388,6 +1408,23 @@ def render_markdown(pl: Playlist, a: Dict[str, Any], fetched_at: str) -> str:
                           for p in a["collabs"]["top_partners"][:5])))
         lines.append("")
 
+    if a.get("artist_tiers") and a["artist_tiers"]["rows"]:
+        lines.append("### 歌手影响力分级")
+        lines.append(_md_table(["层级", "歌手数", "占比"], _pct_table(
+            [(i["name"], i["count"]) for i in a["artist_tiers"]["rows"]],
+            sum(i["count"] for i in a["artist_tiers"]["rows"]))))
+        lines.append("")
+
+    if a.get("hidden_gems"):
+        lines.append("### 冷门好歌")
+        lines.append("> 影响力层级较低 / 非主流曲风，但值得一听的遗珠。")
+        lines.append("")
+        lines.append(_md_table(["曲目", "歌手", "曲风", "年份", "热度"], [
+            [t["title"], t["artists"], t["genre"], str(t["year"]) if t["year"] else "-",
+             str(t["popularity"]) if t["popularity"] is not None else "-"]
+            for t in a["hidden_gems"]]))
+        lines.append("")
+
     lines.append("## 曲风维度")
     if a.get("genre_overview"):
         lines.append("> {}".format(a["genre_overview"]))
@@ -1411,6 +1448,32 @@ def render_markdown(pl: Playlist, a: Dict[str, Any], fetched_at: str) -> str:
     lines.append(_md_table(["情绪", "曲目数", "占比"], _pct_table(
         [(i["name"], i["count"]) for i in a["moods"]["rows"]], n)))
     lines.append("")
+
+    if a.get("narrative"):
+        lines.append("## 歌单叙事弧线")
+        if a["narrative"].get("verdict"):
+            lines.append("> **{}**：{}".format(a["narrative"]["verdict"], a["narrative"].get("detail", "")))
+        lines.append("")
+        lines.append(_md_table(["曲序段", "平均情绪", "平均能量"], [
+            ["#{}~{}".format(s["from"], s["to"]), "{:.2f}".format(s["valence"]),
+             "{:.2f}".format(s["energy"])]
+            for s in a["narrative"]["segments"]]))
+        lines.append("")
+
+    if a.get("themes") and a["themes"]["rows"]:
+        lines.append("## 歌词主题维度")
+        if a.get("theme_overview"):
+            lines.append("> {}".format(a["theme_overview"]))
+            lines.append("")
+        lines.append(_md_table(["主题", "曲目数", "占比"], _pct_table(
+            [(i["name"], i["count"]) for i in a["themes"]["rows"]], n)))
+        lines.append("")
+        if a.get("theme_x_genre") and a["theme_x_genre"]["rows"]:
+            lines.append("### 主题 × 曲风")
+            lines.append(_md_table(["主题", "曲风", "曲目数"], [
+                [t["theme"], t["genre"], str(t["count"])]
+                for t in a["theme_x_genre"]["rows"][:15]]))
+            lines.append("")
 
     lines.append("## 语言维度")
     lines.append(_md_table(["语言", "曲目数", "占比"], _pct_table(
@@ -1461,10 +1524,18 @@ def render_markdown(pl: Playlist, a: Dict[str, Any], fetched_at: str) -> str:
     lines.append("")
 
     lines.append("## 精选曲目 Top 30")
-    lines.append(_md_table(["#", "曲目", "歌手", "专辑", "时长", "年份", "热度"], [
-        [str(t["rank"]), t["title"], t["artists"], t["album"], t["duration"], str(t["year"]), str(t["popularity"])]
+    lines.append(_md_table(["#", "曲目", "歌手", "专辑", "时长", "年份", "热度", "推荐理由"], [
+        [str(t["rank"]), t["title"], t["artists"], t["album"], t["duration"], str(t["year"]), str(t["popularity"]),
+         t.get("reason") or t.get("genre") or "-"]
         for t in a["top_songs"]]))
     lines.append("")
+
+    if a.get("share_copy"):
+        lines.append("## 分享文案")
+        for s in a["share_copy"]:
+            lines.append("**{}**：{}".format(s["style"], s["text"]))
+            lines.append("")
+        lines.append("")
 
     lines.append("---")
     lines.append("报告由 playlist-analysis skill 自动生成。")
@@ -1522,6 +1593,12 @@ def render_html(pl: Playlist, a: Dict[str, Any], fetched_at: str) -> str:
         "network_svg": network_svg,
         "heatmap_svg": heatmap_svg,
         "cloud_items": a["cloud"],
+        "narrative": a.get("narrative"),
+        "hidden_gems": a.get("hidden_gems") or [],
+        "share_copy": a.get("share_copy") or [],
+        "golden_lines": a.get("golden_lines") or [],
+        "audience": a.get("audience") or [],
+        "artist_tiers": a.get("artist_tiers") or {"rows": [], "artists": []},
     }
     return env.from_string(tpl).render(**ctx)
 
@@ -1733,14 +1810,20 @@ def merge_ai(a: Dict[str, Any], ai: Dict[str, Any]) -> Dict[str, Any]:
     if not ai:
         return a
     a = dict(a)
-    for key in ("genres", "types", "moods", "scenes", "profile", "summary", "insights",
-                "redundancy", "genre_x_year", "cloud", "collab_network", "top_songs"):
+    for key in ("genres", "types", "moods", "scenes", "themes", "theme_x_genre",
+                "profile", "summary", "insights", "redundancy", "genre_x_year",
+                "cloud", "collab_network", "top_songs", "artist_tiers",
+                "narrative", "hidden_gems", "share_copy", "golden_lines"):
         if ai.get(key):
             a[key] = ai[key]
     if ai.get("genre_overview"):
         a["genre_overview"] = ai["genre_overview"]
     if ai.get("mood_overview"):
         a["mood_overview"] = ai["mood_overview"]
+    if ai.get("theme_overview"):
+        a["theme_overview"] = ai["theme_overview"]
+    if ai.get("audience"):
+        a["audience"] = ai["audience"]
     return a
 
 

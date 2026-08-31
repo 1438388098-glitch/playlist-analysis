@@ -291,6 +291,37 @@ footer { margin-top: 70px; padding: 26px 0; border-top: 1px solid var(--line);
   color: var(--ink-3); font-size: 12.5px; }
 footer b { color: var(--ink); font-family: var(--serif); }
 
+/* ---------- 金句 ---------- */
+.golden-quotes { display: flex; flex-direction: column; gap: 14px; margin-bottom: 8px; }
+.golden-quotes blockquote {
+  font-family: var(--serif); font-size: 18px; line-height: 1.8;
+  color: var(--ink); border-left: 3px solid var(--orange);
+  background: rgba(255,255,255,.3); padding: 18px 24px;
+}
+.golden-quotes cite { display: block; margin-top: 6px; font-size: 12.5px; font-style: normal; color: var(--ink-3); }
+.golden-quotes blockquote p { color: var(--ink); }
+
+/* ---------- 叙事弧线 ---------- */
+.narrative { display: flex; gap: 5px; margin-top: 6px; align-items: flex-end; height: 150px; }
+.nar-seg { display: flex; flex-direction: column; gap: 4px; height: 100%; justify-content: flex-end; }
+.nar-track { position: relative; flex: 1; background: rgba(34,32,28,.05); border-radius: 2px; min-height: 40px; overflow: hidden; }
+.nar-fill { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 2px; transition: height 1s var(--ease); }
+.nar-fill.val { background: var(--orange); }
+.nar-fill.ene { background: var(--blue); }
+.nar-lab { text-align: center; font-size: 10.5px; color: var(--ink-3); font-family: var(--mono); }
+
+/* ---------- 冷门好歌 ---------- */
+.gem-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px dashed var(--line); }
+.gem-row:last-child { border-bottom: none; }
+.gem-row a { color: var(--ink); text-decoration: none; font-weight: 600; font-size: 13.5px; }
+.gem-row a:hover { color: var(--orange-deep); }
+
+/* ---------- 分享文案 ---------- */
+.share-text { font-family: var(--serif); font-size: 14.5px; line-height: 1.9; color: var(--ink-2); }
+
+/* ---------- 迷你 chip ---------- */
+.chip.mini { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line-strong); background: rgba(255,255,255,.4); white-space: nowrap; }
+
 /* ---------- 回到顶部 ---------- */
 .to-top {
   position: fixed; right: 24px; bottom: 24px; z-index: 90;
@@ -383,6 +414,17 @@ footer b { color: var(--ink); font-family: var(--serif); }
           {% endfor %}
         </div>
       </div>
+      {% if audience %}
+      <div class="card reveal d3">
+        <div class="card-title">适听人群</div>
+        <div class="card-sub">这份歌单最适合谁听</div>
+        <div class="profile-tags">
+          {% for p in audience %}
+          <span class="profile-tag" style="animation-delay:{{ (0.12 + loop.index * 0.06) }}s">{{ p }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
       {% if a.freshness is not none %}
       <div class="card reveal d3">
         <div class="card-title">新歌 / 旧歌</div>
@@ -405,6 +447,20 @@ footer b { color: var(--ink); font-family: var(--serif); }
   </section>
 
   <!-- ================= 洞察 ================= -->
+  {% if golden_lines %}
+  <section id="golden" class="reveal">
+    <div class="sec-head"><span class="no">★</span><h2>金句精选</h2></div>
+    <div class="golden-quotes">
+      {% for g in golden_lines %}
+      <blockquote class="reveal" style="animation-delay:{{ (loop.index * 0.08) }}s">
+        <p>「{{ g.line }}」</p>
+        <cite>—— {{ g.song }}</cite>
+      </blockquote>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
   <section id="insights" class="reveal">
     <div class="sec-head"><span class="no">B.</span><h2>关键洞察</h2></div>
     <div>
@@ -464,6 +520,41 @@ footer b { color: var(--ink); font-family: var(--serif); }
       </div>
     </div>
 
+    <!-- 歌词主题 + 主题×曲风 -->
+    {% if a.themes and a.themes.rows %}
+    <div class="grid2" style="margin-bottom:18px">
+      <div class="card reveal d1">
+        <div class="card-title">歌词主题</div>
+        <div class="card-sub">爱情 / 友情 / 思乡 / 成长 / 社会… 主题多样性 {{ a.themes.diversity }}</div>
+        {% if a.theme_overview %}
+        <div class="overview-quote" style="font-size:13.5px">{{ a.theme_overview }}</div>
+        {% endif %}
+        {% for t in a.themes.rows[:10] %}
+        <div class="bar-row">
+          <div class="lab">{{ t.name }}</div>
+          <div class="track"><div class="fill" data-w="{{ t.pct | round(1) }}" style="opacity:.95"></div></div>
+          <div class="val">{{ t.count }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% if a.theme_x_genre and a.theme_x_genre.rows %}
+      <div class="card reveal d2">
+        <div class="card-title">主题 × 曲风</div>
+        <div class="card-sub">哪种主题最常搭哪种曲风</div>
+        <div style="margin-top:6px">
+          {% for tg in a.theme_x_genre.rows[:12] %}
+          <div class="legend-row" style="font-size:13px">
+            <span class="chip mini">{{ tg.theme }}</span>
+            <span class="nm" style="color:var(--ink-2)">{{ tg.genre }}</span>
+            <span class="pct"><b style="color:var(--ink)">{{ tg.count }}</b> 首</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
     <!-- 语言 + 情绪 -->
     <div class="grid2" style="margin-bottom:18px">
       <div class="card reveal d1">
@@ -519,6 +610,34 @@ footer b { color: var(--ink); font-family: var(--serif); }
         {% endif %}
       </div>
     </div>
+
+    <!-- 叙事弧线 -->
+    {% if narrative and narrative.segments %}
+    <div class="card reveal d3" style="margin-bottom:18px">
+      <div class="card-title">歌单叙事弧线</div>
+      <div class="card-sub">情绪/能量随曲序的起承转合</div>
+      {% if narrative.verdict %}
+      <div class="overview-quote" style="font-size:13.5px"><b>{{ narrative.verdict }}</b>：{{ narrative.detail }}</div>
+      {% endif %}
+      <div class="narrative">
+        {% for s in narrative.segments %}
+        <div class="nar-seg" style="flex:1">
+          <div class="nar-track">
+            <div class="nar-fill val" style="height:{{ (s.valence * 100) | round(0) }}%" title="情绪 {{ s.valence }}"></div>
+          </div>
+          <div class="nar-track">
+            <div class="nar-fill ene" style="height:{{ (s.energy * 100) | round(0) }}%" title="能量 {{ s.energy }}"></div>
+          </div>
+          <div class="nar-lab">#{{ s.from }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="legend-line" style="margin-top:10px">
+        <span><i style="background:var(--orange)"></i>情绪</span>
+        <span><i style="background:var(--blue)"></i>能量</span>
+      </div>
+    </div>
+    {% endif %}
 
     <!-- 曲风×年代热力图 -->
     {% if heatmap_svg %}
@@ -658,6 +777,45 @@ footer b { color: var(--ink); font-family: var(--serif); }
       {% endif %}
     </div>
 
+    <!-- 歌手影响力分级 + 冷门好歌 -->
+    {% if artist_tiers.rows or hidden_gems %}
+    <div class="grid2" style="margin-bottom:18px">
+      {% if artist_tiers.rows %}
+      <div class="card reveal d4">
+        <div class="card-title">歌手影响力分级</div>
+        <div class="card-sub">AI 按知名度/影响力给歌手分层</div>
+        {% for t in artist_tiers.rows %}
+        <div class="bar-row">
+          <div class="lab">{{ t.name }}</div>
+          <div class="track"><div class="fill blue" data-w="{{ t.pct | round(1) }}"></div></div>
+          <div class="val">{{ t.count }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if hidden_gems %}
+      <div class="card reveal d5">
+        <div class="card-title">冷门好歌 · 遗珠</div>
+        <div class="card-sub">非主流曲风 / 小透明歌手，却值得一听</div>
+        <div style="margin-top:8px">
+          {% for g in hidden_gems[:8] %}
+          <div class="gem-row">
+            <div>
+              {% if g.url %}<a href="{{ g.url }}" target="_blank" rel="noopener">{{ g.title }}</a>
+              {% else %}{{ g.title }}{% endif %}
+              <div class="dim" style="font-size:12.5px">{{ g.artists }} · {{ g.genre }}{% if g.year %} · {{ g.year }}{% endif %}</div>
+            </div>
+            <div class="dim" style="font-family:var(--mono);font-size:12.5px">
+              {% if g.popularity is not none and g.popularity != '-' %}{{ g.popularity }}{% else %}-{% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
     <!-- 雷达 + 词云 -->
     <div class="grid2" style="margin-bottom:18px">
       <div class="card reveal d4">
@@ -689,7 +847,7 @@ footer b { color: var(--ink); font-family: var(--serif); }
       <div style="overflow-x:auto">
       <table class="rank-table">
         <thead>
-          <tr><th>#</th><th>曲目</th><th>歌手</th><th>专辑</th><th>时长</th><th>年份</th><th>热度</th></tr>
+          <tr><th>#</th><th>曲目</th><th>歌手</th><th>专辑</th><th>时长</th><th>年份</th><th>热度</th><th>推荐理由</th></tr>
         </thead>
         <tbody>
           {% for t in a.top_songs %}
@@ -713,6 +871,7 @@ footer b { color: var(--ink); font-family: var(--serif); }
               </span>
               {% else %}-{% endif %}
             </td>
+            <td class="dim" style="max-width:280px;line-height:1.5">{{ t.reason or (t.genre if t.genre else '-') }}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -720,6 +879,21 @@ footer b { color: var(--ink); font-family: var(--serif); }
       </div>
     </div>
   </section>
+
+  <!-- ================= 分享文案 ================= -->
+  {% if share_copy %}
+  <section id="share" class="reveal">
+    <div class="sec-head"><span class="no">D.</span><h2>分享文案 · 直接拿去用</h2></div>
+    <div class="grid2">
+      {% for s in share_copy %}
+      <div class="card reveal" style="animation-delay:{{ (loop.index * 0.08) }}s">
+        <div class="card-title" style="font-size:14px">{{ s.style }}</div>
+        <p class="share-text">{{ s.text }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
 
   <footer>
     <div><b>歌单档案</b> · Playlist Dossier</div>
