@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ pl.name }} · 歌单档案</title>
+<style>
+/* ============================================================
+   歌单档案 · 黑胶唱片 × 编辑杂志
+   暖纸面 / 墨黑 / 黑胶橙 / 衬线标题 / 克制动效
+   ============================================================ */
+:root {
+  --paper: #f4efe6;
+  --paper-2: #ece5d8;
+  --ink: #22201c;
+  --ink-2: #56524a;
+  --ink-3: #8a8478;
+  --orange: #d96c2f;
+  --orange-deep: #b3511f;
+  --green: #4a7c59;
+  --blue: #3a6ea5;
+  --line: rgba(34, 32, 28, .12);
+  --line-strong: rgba(34, 32, 28, .22);
+  --serif: Georgia, "Songti SC", "Noto Serif SC", "SimSun", serif;
+  --sans: "PingFang SC", "Microsoft YaHei", -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "SF Mono", "Cascadia Code", Consolas, monospace;
+  --ease: cubic-bezier(.2, .6, .3, 1);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  line-height: 1.75;
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: var(--orange); color: #fff; }
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: var(--paper); }
+::-webkit-scrollbar-thumb { background: var(--ink-3); border-radius: 6px; }
+
+/* ---------- 纸面纹理（极淡，不喧宾夺主） ---------- */
+body::before {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image: radial-gradient(rgba(34,32,28,.035) 1px, transparent 1px);
+  background-size: 22px 22px;
+  opacity: .5;
+}
+
+/* ---------- 顶栏 ---------- */
+.nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 90;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px clamp(20px, 5vw, 64px);
+  transition: background .35s ease, box-shadow .35s ease;
+}
+.nav.scrolled {
+  background: rgba(244, 239, 230, .92);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 1px 0 var(--line);
+}
+.nav .brand { display: flex; align-items: center; gap: 12px; }
+.nav .brand .mark {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: var(--ink); color: var(--paper);
+  display: grid; place-items: center; font-size: 14px; font-family: var(--serif);
+  letter-spacing: -.02em;
+}
+.nav .brand b { font-family: var(--serif); font-size: 16px; letter-spacing: .02em; font-weight: 700; }
+.nav .brand small { color: var(--ink-3); font-size: 12.5px; }
+.nav .links { display: flex; gap: 4px; }
+.nav .links a {
+  color: var(--ink-2); text-decoration: none; font-size: 13px;
+  padding: 7px 13px; border-radius: 2px;
+  border-bottom: 2px solid transparent; transition: all .25s var(--ease);
+}
+.nav .links a:hover { color: var(--ink); }
+.nav .links a.active { color: var(--orange-deep); border-bottom-color: var(--orange); }
+@media (max-width: 720px) { .nav .links { display: none; } }
+
+.wrap { max-width: 1060px; margin: 0 auto; padding: 0 clamp(20px, 5vw, 40px) 80px; position: relative; z-index: 1; }
+
+/* ---------- 入场 ---------- */
+.reveal { opacity: 0; transform: translateY(22px);
+  transition: opacity .8s var(--ease), transform .8s var(--ease); }
+.reveal.in { opacity: 1; transform: none; }
+.d1 { transition-delay: .05s; } .d2 { transition-delay: .1s; }
+.d3 { transition-delay: .15s; } .d4 { transition-delay: .2s; }
+.d5 { transition-delay: .25s; } .d6 { transition-delay: .3s; }
+
+/* ---------- 滚动进度 ---------- */
+.progress { position: fixed; top: 0; left: 0; height: 2px; width: 100%; background: transparent; z-index: 100; }
+.progress i { display: block; height: 100%; width: 0; background: var(--orange); }
+
+/* ---------- HERO ---------- */
+.hero { padding: clamp(110px, 15vh, 160px) 0 34px; border-bottom: 1px solid var(--line); }
+.hero .kicker {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 12px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--ink-3); margin-bottom: 22px;
+}
+.hero .kicker::before { content: ""; width: 34px; height: 1px; background: var(--orange); }
+.hero h1 {
+  font-family: var(--serif); font-weight: 700;
+  font-size: clamp(36px, 6vw, 62px); line-height: 1.18;
+  letter-spacing: -.01em; margin-bottom: 20px;
+}
+.hero .sub { color: var(--ink-2); font-size: clamp(15px, 1.9vw, 17px); max-width: 660px; }
+.hero .sub b { color: var(--ink); font-weight: 650; }
+.hero .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 24px 0 0; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; color: var(--ink-2);
+  padding: 6px 12px; border: 1px solid var(--line-strong); border-radius: 2px;
+  background: rgba(255,255,255,.35);
+}
+.chip b { color: var(--ink); font-weight: 650; }
+.chip .ic { color: var(--orange); }
+
+/* ---------- 黑胶唱片装饰 ---------- */
+.hero .record { display: flex; justify-content: center; margin-top: 30px; }
+.record-disc {
+  width: 190px; height: 190px; border-radius: 50%;
+  background: repeating-radial-gradient(circle at 50% 50%,
+    #22201c 0 2px, #2a2723 2px 4px, #1d1b18 4px 6px);
+  box-shadow: 0 24px 48px rgba(34,32,28,.28), inset 0 0 0 1px rgba(255,255,255,.06);
+  position: relative; transition: transform .8s var(--ease);
+}
+.record-disc:hover { transform: rotate(90deg) scale(1.03); }
+.record-disc::before {
+  content: ""; position: absolute; inset: 42px; border-radius: 50%;
+  background: repeating-radial-gradient(circle at 50% 50%,
+    rgba(255,255,255,.03) 0 1px, transparent 1px 3px);
+}
+.record-disc::after {
+  content: ""; position: absolute; inset: 0; margin: auto;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--orange); box-shadow: 0 0 0 3px #22201c;
+}
+
+/* ---------- 章节 ---------- */
+section { margin: 64px 0; }
+.sec-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 20px; }
+.sec-head .no {
+  font-family: var(--serif); font-size: 20px; color: var(--orange);
+  font-style: italic; line-height: 1;
+}
+.sec-head h2 { font-family: var(--serif); font-size: clamp(23px, 3vw, 30px); font-weight: 700; letter-spacing: -.01em; }
+.sec-head::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.sec-sub { color: var(--ink-2); font-size: 13.5px; margin: -6px 0 20px; }
+.sec-sub b { color: var(--ink); }
+
+/* ---------- KPI ---------- */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1px;
+  background: var(--line); border: 1px solid var(--line); margin: 34px 0; }
+.kpi { background: var(--paper); padding: 20px 18px; }
+.kpi .v { font-family: var(--serif); font-size: 34px; font-weight: 700; line-height: 1.1; letter-spacing: -.02em; }
+.kpi .v .unit { font-size: 16px; color: var(--ink-3); font-family: var(--sans); font-weight: 500; }
+.kpi .l { font-size: 12px; color: var(--ink-3); margin-top: 5px; letter-spacing: .06em; }
+.kpi.accent { background: var(--ink); color: var(--paper); }
+.kpi.accent .v { color: var(--orange); }
+.kpi.accent .l { color: rgba(244,239,230,.6); }
+
+/* ---------- 摘要（AI 结论） ---------- */
+.summary-box {
+  border-left: 3px solid var(--orange);
+  background: rgba(217,108,47,.06);
+  padding: 30px 34px; margin: 8px 0 26px;
+}
+.summary-box .lbl { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--orange-deep); margin-bottom: 12px; }
+.summary-box p { font-family: var(--serif); font-size: clamp(18px, 2.4vw, 23px); line-height: 1.6; }
+.summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
+@media (max-width: 820px) { .summary-grid { grid-template-columns: 1fr; } }
+.profile-tags { display: flex; flex-wrap: wrap; gap: 9px; }
+.profile-tag {
+  padding: 8px 15px; border: 1px solid var(--line-strong); border-radius: 2px;
+  background: rgba(255,255,255,.4); font-size: 13.5px; font-weight: 600; color: var(--ink);
+  transition: all .3s var(--ease); cursor: default;
+}
+.profile-tag:hover { border-color: var(--orange); color: var(--orange-deep); transform: translateY(-2px); }
+.gauges { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.gauge .gl { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; letter-spacing: .05em; }
+.gauge .gv { font-family: var(--serif); font-size: 26px; font-weight: 700; }
+.track { height: 6px; border-radius: 3px; background: rgba(34,32,28,.08); margin-top: 8px; overflow: hidden; }
+.fill { height: 100%; width: 0; border-radius: 3px; background: var(--orange); transition: width 1.2s var(--ease); }
+.fill.green { background: var(--green); }
+.fill.blue { background: var(--blue); }
+
+/* ---------- 洞察 ---------- */
+.insight {
+  display: flex; gap: 16px; align-items: flex-start;
+  padding: 16px 4px; border-bottom: 1px dashed var(--line);
+}
+.insight .no {
+  flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%;
+  border: 1px solid var(--line-strong); color: var(--ink-3);
+  display: grid; place-items: center; font-family: var(--serif); font-style: italic; font-size: 14px;
+}
+.insight p { font-size: 15px; color: var(--ink); }
+.insight:hover .no { border-color: var(--orange); color: var(--orange); }
+
+/* ---------- 条形图 ---------- */
+.bar-row { display: grid; grid-template-columns: 110px 1fr 56px; gap: 12px; align-items: center; margin: 12px 0; }
+.bar-row .lab { font-size: 12.5px; color: var(--ink-2); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-row .val { font-size: 13px; font-weight: 650; font-family: var(--mono); color: var(--ink); }
+
+/* ---------- 卡片 ---------- */
+.card { border: 1px solid var(--line); background: rgba(255,255,255,.4); padding: 28px 26px; }
+.card .card-title { font-family: var(--serif); font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+.card .card-sub { font-size: 12.5px; color: var(--ink-3); margin-bottom: 16px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; }
+@media (max-width: 820px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+
+/* ---------- 环形图 ---------- */
+.donut-wrap { display: flex; align-items: center; gap: 30px; flex-wrap: wrap; }
+.donut { position: relative; width: 190px; height: 190px; flex-shrink: 0; }
+.donut svg { transform: rotate(-90deg); }
+.donut .center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.donut .center b { font-family: var(--serif); font-size: 30px; font-weight: 700; }
+.donut .center span { font-size: 11px; color: var(--ink-3); }
+.legend { display: grid; gap: 9px; flex: 1; min-width: 200px; }
+.legend-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.legend-row .sw { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+.legend-row .nm { flex: 1; color: var(--ink); }
+.legend-row .cnt { color: var(--ink-3); font-family: var(--mono); font-size: 12px; }
+.legend-row .pct { font-weight: 700; font-family: var(--mono); min-width: 44px; text-align: right; }
+
+/* ---------- 图表 ---------- */
+.chart-svg { width: 100%; height: auto; display: block; }
+.radar-svg { width: 100%; max-width: 440px; margin: 0 auto; display: block; }
+.draw { stroke-dasharray: 100; stroke-dashoffset: 100; animation: draw 2.2s var(--ease) forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.mood-area { opacity: 0; animation: fade 1.5s ease .9s forwards; }
+@keyframes fade { to { opacity: 1; } }
+.net-node { animation: fade 1s ease both; }
+.hm-cell { opacity: 0; animation: fadeCell .5s ease both; }
+@keyframes fadeCell { to { opacity: 1; } }
+.legend-line { display: flex; gap: 20px; justify-content: center; margin-top: 10px; font-size: 12.5px; color: var(--ink-2); }
+.legend-line i { display: inline-block; width: 18px; height: 3px; margin-right: 6px; vertical-align: middle; }
+
+/* ---------- 词云 ---------- */
+.cloud { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: center; justify-content: center; padding: 16px 4px; }
+.cloud span {
+  display: inline-block; font-family: var(--serif); font-weight: 600; color: var(--ink-2);
+  transition: all .3s var(--ease); cursor: default;
+}
+.cloud span:hover { color: var(--orange); transform: translateY(-3px); }
+
+/* ---------- 榜单 ---------- */
+.rank-table { width: 100%; border-collapse: collapse; }
+.rank-table thead th {
+  text-align: left; font-size: 11px; color: var(--ink-3); font-weight: 600;
+  padding: 10px 12px; border-bottom: 1px solid var(--line-strong);
+  letter-spacing: .1em; font-family: var(--mono); text-transform: uppercase;
+}
+.rank-table tbody tr { transition: background .25s ease; }
+.rank-table tbody tr:hover { background: rgba(217,108,47,.05); }
+.rank-table td { padding: 12px; font-size: 13.5px; border-bottom: 1px solid var(--line); }
+.rank-badge {
+  display: inline-grid; place-items: center; width: 28px; height: 28px;
+  border-radius: 50%; font-family: var(--serif); font-style: italic;
+  font-weight: 700; font-size: 13px; color: var(--ink-3); border: 1px solid var(--line);
+}
+.rank-badge.top1 { background: var(--ink); color: var(--orange); border-color: var(--ink); }
+.rank-badge.top2 { background: var(--orange); color: #fff; border-color: var(--orange); }
+.rank-badge.top3 { background: var(--orange-deep); color: #fff; border-color: var(--orange-deep); }
+.song-t a { color: var(--ink); text-decoration: none; font-weight: 600; border-bottom: 1px solid transparent; transition: border-color .25s; }
+.song-t a:hover { border-bottom-color: var(--orange); color: var(--orange-deep); }
+.dim { color: var(--ink-2); font-size: 12.5px; }
+.pop-cell { display: inline-flex; align-items: center; gap: 6px; }
+.pop-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+/* ---------- AI 解读 ---------- */
+.overview-quote {
+  font-family: var(--serif); font-size: 15.5px; line-height: 1.8; color: var(--ink);
+  background: rgba(255,255,255,.35); border: 1px solid var(--line);
+  padding: 22px 26px; margin-bottom: 20px;
+}
+.overview-quote b { color: var(--orange-deep); }
+
+/* ---------- 冗余度 ---------- */
+.redundancy { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+.redundancy .meter { flex: 1; min-width: 200px; }
+.redundancy .lvl { font-family: var(--serif); font-size: 34px; font-weight: 700; color: var(--orange); }
+
+/* ---------- 页脚 ---------- */
+footer { margin-top: 70px; padding: 26px 0; border-top: 1px solid var(--line);
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+  color: var(--ink-3); font-size: 12.5px; }
+footer b { color: var(--ink); font-family: var(--serif); }
+
+/* ---------- 回到顶部 ---------- */
+.to-top {
+  position: fixed; right: 24px; bottom: 24px; z-index: 90;
+  width: 42px; height: 42px; border-radius: 50%;
+  background: var(--ink); color: var(--paper); border: none; cursor: pointer;
+  font-size: 16px; opacity: 0; transform: translateY(14px); pointer-events: none;
+  transition: all .4s var(--ease); box-shadow: 0 8px 22px rgba(34,32,28,.2);
+}
+.to-top.show { opacity: 1; transform: none; pointer-events: auto; }
+.to-top:hover { background: var(--orange); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .reveal { opacity: 1; transform: none; }
+  .fill { width: 100%; }
+  .draw { stroke-dasharray: none; stroke-dashoffset: 0; }
+  .hm-cell, .net-node { opacity: 1; }
+}
+</style>
+</head>
+<body>
+<div class="progress"><i id="bar"></i></div>
+
+<nav class="nav" id="nav">
+  <div class="brand">
+    <span class="mark">♪</span>
+    <div><b>歌单档案</b><small>PLAYLIST DOSSIER</small></div>
+  </div>
+  <div class="links">
+    <a href="#summary">摘要</a>
+    <a href="#charts">图表</a>
+    <a href="#insights">洞察</a>
+    <a href="#top30">Top30</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- ================= HERO ================= -->
+  <header class="hero">
+    <div class="kicker">Playlist Dossier · {{ platform_name }}</div>
+    <h1 class="reveal in">{{ pl.name }}</h1>
+    <p class="sub reveal d1">
+      {% if pl.creator %}<b>{{ pl.creator }}</b> 的私藏 · {% endif %}
+      <b>{{ a.total }}</b> 首曲目 · 完整听完约 <b>{{ a.total_duration_str }}</b>
+      {% if a.popularity.avg is not none %} · 平均热度 <b>{{ a.popularity.avg }}</b>{% endif %}
+    </p>
+    <div class="chips reveal d2">
+      {% if pl.play_count %}<span class="chip"><span class="ic">▶</span>播放 <b>{{ pl.play_count|fmt_count }}</b></span>{% endif %}
+      {% if pl.creator %}<span class="chip"><span class="ic">✎</span><b>{{ pl.creator }}</b></span>{% endif %}
+      {% if created_date %}<span class="chip"><span class="ic">◎</span>创建于 <b>{{ created_date }}</b></span>{% endif %}
+      <span class="chip"><span class="ic">♫</span><b>{{ a.total }}</b> 首</span>
+      <span class="chip"><span class="ic">⏱</span>平均 <b>{{ a.avg_duration_str }}</b></span>
+      <span class="chip"><span class="ic">☰</span>{{ fetched_at }}</span>
+    </div>
+    <div class="record"><div class="record-disc" title="{{ pl.name }}"></div></div>
+  </header>
+
+  <!-- ================= KPI ================= -->
+  <div class="kpis" id="overview">
+    <div class="kpi"><div class="v" data-count="{{ a.total }}">0</div><div class="l">曲目总数</div></div>
+    <div class="kpi accent"><div class="v">{{ a.total_duration_str }}</div><div class="l">完整听完需</div></div>
+    <div class="kpi"><div class="v">{{ a.avg_duration_str }}</div><div class="l">平均单曲</div></div>
+    <div class="kpi"><div class="v">{{ a.artists.unique }}</div><div class="l">不同歌手</div></div>
+    {% if a.years.min is not none %}
+    <div class="kpi"><div class="v">{{ a.years.span }}<span class="unit">年</span></div><div class="l">发行跨度</div></div>
+    {% endif %}
+    {% if a.popularity.avg is not none %}
+    <div class="kpi"><div class="v">{{ a.popularity.avg }}<span class="unit">/100</span></div><div class="l">平均热度</div></div>
+    {% endif %}
+    {% if a.moods.energy_avg %}
+    <div class="kpi"><div class="v">{{ a.moods.energy_avg }}</div><div class="l">能量指数</div></div>
+    {% endif %}
+  </div>
+
+  <!-- ================= 摘要 ================= -->
+  <section id="summary" class="reveal">
+    <div class="sec-head"><span class="no">A.</span><h2>一句话读懂这份歌单</h2></div>
+    <div class="summary-box reveal d1">
+      <div class="lbl">AI 结论</div>
+      <p>{{ a.summary }}</p>
+    </div>
+    <div class="summary-grid">
+      <div class="card reveal d2">
+        <div class="card-title">口味画像</div>
+        <div class="card-sub">基于全部维度生成的聆听者画像</div>
+        <div class="profile-tags">
+          {% for p in a.profile %}
+          <span class="profile-tag" style="animation-delay:{{ (0.12 + loop.index * 0.06) }}s">{{ p }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% if a.freshness is not none %}
+      <div class="card reveal d3">
+        <div class="card-title">新歌 / 旧歌</div>
+        <div class="card-sub">近五年发行 vs 发行超十年的占比（独立指标，可同时高）</div>
+        <div class="gauges">
+          <div class="gauge">
+            <div class="gl">近五年发行</div>
+            <div class="gv">{{ "%.0f"|format(a.freshness * 100) }}%</div>
+            <div class="track"><div class="fill" data-w="{{ a.freshness * 100 | round(1) }}"></div></div>
+          </div>
+          <div class="gauge">
+            <div class="gl">发行超十年</div>
+            <div class="gv">{{ "%.0f"|format(a.nostalgia * 100) }}%</div>
+            <div class="track"><div class="fill green" data-w="{{ a.nostalgia * 100 | round(1) }}"></div></div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- ================= 洞察 ================= -->
+  <section id="insights" class="reveal">
+    <div class="sec-head"><span class="no">B.</span><h2>关键洞察</h2></div>
+    <div>
+      {% for ins in a.insights %}
+      <div class="insight reveal" style="animation-delay:{{ (loop.index * 0.05) }}s">
+        <span class="no">{{ "%02d"|format(loop.index) }}</span>
+        <p>{{ ins }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- ================= 图表 ================= -->
+  <section id="charts">
+
+    <!-- 曲风 + AI 解读 -->
+    <div class="card reveal d1" style="margin-bottom:18px">
+      <div class="card-title">曲风构成</div>
+      <div class="card-sub">曲风多样性 {{ a.genres.diversity }}（0 单一 → 1 多元）</div>
+      {% if a.genre_overview %}
+      <div class="overview-quote">{{ a.genre_overview }}</div>
+      {% endif %}
+      {% for g in a.genres.rows %}
+      <div class="bar-row">
+        <div class="lab">{{ g.name }}</div>
+        <div class="track"><div class="fill" data-w="{{ g.pct | round(1) }}" style="opacity:.95"></div></div>
+        <div class="val">{{ g.count }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- 场景 + 类型 -->
+    <div class="grid2" style="margin-bottom:18px">
+      {% if a.get('scenes') and a.scenes.rows %}
+      <div class="card reveal d2">
+        <div class="card-title">使用场景</div>
+        <div class="card-sub">这份歌单什么时候听最合适</div>
+        {% for s in a.scenes.rows %}
+        <div class="bar-row">
+          <div class="lab">{{ s.name }}</div>
+          <div class="track"><div class="fill green" data-w="{{ s.pct | round(1) }}"></div></div>
+          <div class="val">{{ s.count }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <div class="card reveal d3">
+        <div class="card-title">歌曲类型</div>
+        <div class="card-sub">录音室 / 翻唱 / 现场 / 混音 / 原声带</div>
+        {% for t in a.types.rows %}
+        <div class="bar-row">
+          <div class="lab">{{ t.name }}</div>
+          <div class="track"><div class="fill blue" data-w="{{ t.pct | round(1) }}"></div></div>
+          <div class="val">{{ t.count }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- 语言 + 情绪 -->
+    <div class="grid2" style="margin-bottom:18px">
+      <div class="card reveal d1">
+        <div class="card-title">语言构成</div>
+        <div class="card-sub">语言多样性 {{ a.languages.diversity }}</div>
+        <div class="donut-wrap">
+          <div class="donut">
+            <svg width="190" height="190" viewBox="0 0 200 200">
+              <circle cx="100" cy="100" r="82" fill="none" stroke="rgba(34,32,28,.06)" stroke-width="22"/>
+              {% set colors = ['#d96c2f', '#3a6ea5', '#4a7c59', '#a04a63', '#8a8478', '#6b5b3e'] %}
+              {% set circ = 2 * 3.14159 * 82 %}
+              {% set ns = namespace(offset=0) %}
+              {% for item in a.languages.rows %}
+                {% set frac = item.count / a.total %}
+                {% set c = colors[loop.index0 % (colors|length)] %}
+                <circle cx="100" cy="100" r="82" fill="none" stroke="{{ c }}"
+                        stroke-width="22"
+                        stroke-dasharray="{{ (frac * circ) | round(1) }} {{ circ | round(1) }}"
+                        stroke-dashoffset="{{ (-ns.offset) | round(1) }}">
+                  <animate attributeName="stroke-dasharray" from="0 {{ circ|round(1) }}"
+                           to="{{ (frac*circ)|round(1) }} {{ circ|round(1) }}"
+                           dur="1.2s" begin="0.3s" fill="freeze" calcMode="spline" keySplines="0.2 0.6 0.3 1"/>
+                </circle>
+                {% set ns.offset = ns.offset + frac * circ %}
+              {% endfor %}
+            </svg>
+            <div class="center"><b>{{ a.total }}</b><span>首曲目</span></div>
+          </div>
+          <div class="legend">
+            {% for item in a.languages.rows %}
+            <div class="legend-row">
+              <span class="sw" style="background:{{ colors[loop.index0 % (colors|length)] }}"></span>
+              <span class="nm">{{ item.name }}</span>
+              <span class="cnt">{{ item.count }}</span>
+              <span class="pct">{{ item.pct }}%</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      <div class="card reveal d2">
+        <div class="card-title">情绪曲线</div>
+        <div class="card-sub">平均情绪 <b>{{ a.moods.valence_avg }}</b> · 平均能量 <b>{{ a.moods.energy_avg }}</b></div>
+        {% if a.mood_overview %}
+        <div class="overview-quote" style="font-size:13.5px">{{ a.mood_overview }}</div>
+        {% endif %}
+        {% if mood_svg %}
+        <div class="chart-svg">{{ mood_svg | safe }}</div>
+        <div class="legend-line">
+          <span><i style="background:var(--orange)"></i>情绪（乐观度）</span>
+          <span><i style="background:var(--blue)"></i>能量（活跃度）</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- 曲风×年代热力图 -->
+    {% if heatmap_svg %}
+    <div class="card reveal d3" style="margin-bottom:18px">
+      <div class="card-title">曲风 × 年代</div>
+      <div class="card-sub">不同曲风在年代上的分布浓度（悬停查看数值）</div>
+      <div class="chart-svg" id="heatmap">{{ heatmap_svg | safe }}</div>
+    </div>
+    {% endif %}
+
+    <!-- 年份 -->
+    <div class="card reveal d1" style="margin-bottom:18px">
+      <div class="card-title">年代与时间线</div>
+      {% if a.years.min is not none %}
+      <div class="card-sub">
+        发行于 <b>{{ a.years.min }}</b> — <b>{{ a.years.max }}</b>，平均 <b>{{ a.years.avg }}</b>
+        {% if a.years.unknown %} · {{ a.years.unknown }} 首年份未知{% endif %}
+        {% if a.ordering.year %} · 编排：<b>{{ a.ordering.year.verdict }}</b>{% endif %}
+      </div>
+      {% if year_svg %}<div class="chart-svg">{{ year_svg | safe }}</div>{% endif %}
+      {% if a.years.decade_bins %}
+      <div style="margin-top:16px">
+        {% for b in a.years.decade_bins %}
+        <div class="bar-row">
+          <div class="lab">{{ b[0] }}年代</div>
+          <div class="track"><div class="fill blue" data-w="{{ (b[1] / decade_max * 100) | round(1) }}"></div></div>
+          <div class="val">{{ b[1] }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% else %}
+      <div class="card-sub">该平台未返回歌曲发行年份信息。</div>
+      {% endif %}
+    </div>
+
+    <!-- 歌手 + 热度 -->
+    <div class="grid2" style="margin-bottom:18px">
+      <div class="card reveal d2">
+        <div class="card-title">Top 歌手</div>
+        <div class="card-sub">共 {{ a.artists.unique }} 位 ｜ 首席歌手占 {{ a.artists.top1_track_share }}% 曲目</div>
+        {% for t in top_artists %}
+        <div class="bar-row">
+          <div class="lab">{{ t.name }}</div>
+          <div class="track"><div class="fill" data-w="{{ t.pct | round(1) }}"></div></div>
+          <div class="val">{{ t.lead }}<span style="color:var(--ink-3);font-size:11px">首</span></div>
+        </div>
+        {% endfor %}
+        {% if a.cohorts.rows %}
+        <div style="margin-top:16px; padding-top:14px; border-top:1px dashed var(--line)">
+          <div class="card-title" style="font-size:14px">歌手代际构成</div>
+          <div class="legend" style="gap:7px;margin-top:8px">
+            {% for c in a.cohorts.rows %}
+            <div class="legend-row" style="font-size:12.5px">
+              <span class="sw" style="background:{{ colors[loop.index0 % (colors|length)] }}"></span>
+              <span class="nm">{{ c.name }}</span>
+              <span class="cnt">{{ c.count }} 首</span>
+              <span class="pct">{{ c.pct }}%</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+      <div class="card reveal d3">
+        <div class="card-title">热度分布</div>
+        <div class="card-sub">{% if a.popularity.avg is not none %}平均热度 <b>{{ a.popularity.avg }}</b> / 100{% else %}该平台未提供热度数据{% endif %}</div>
+        {% if a.popularity.bins %}
+          {% for b in a.popularity.bins %}
+          <div class="bar-row">
+            <div class="lab">{{ b[0] }}</div>
+            <div class="track"><div class="fill" data-w="{{ (b[1] / pop_max * 100) | round(1) }}"></div></div>
+            <div class="val">{{ b[1] }}</div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <p class="sec-sub" style="margin:14px 0">暂无热度数据。</p>
+        {% endif %}
+        {% if a.collabs.count %}
+        <div style="margin-top:16px; padding-top:14px; border-top:1px dashed var(--line)">
+          <div class="card-title" style="font-size:14px">合作曲目 · {{ a.collabs.count }} 首 ({{ a.collabs.pct }}%)</div>
+          {% if a.collabs.top_partners %}
+          <div class="chips" style="margin-top:10px; gap:6px">
+            {% for p in a.collabs.top_partners[:6] %}
+            <span class="chip">× {{ p.name }} ({{ p.count }})</span>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- 合作网络 + 冗余度 -->
+    <div class="grid2" style="margin-bottom:18px">
+      {% if network_svg %}
+      <div class="card reveal d4">
+        <div class="card-title">歌手合作网络</div>
+        <div class="card-sub">节点越大合作越频繁，连线越粗共演越多</div>
+        <div class="chart-svg">{{ network_svg | safe }}</div>
+      </div>
+      {% endif %}
+      {% if a.get('redundancy') %}
+      <div class="card reveal d5">
+        <div class="card-title">风格冗余度</div>
+        <div class="card-sub">歌单内部"听起来是否重复"的程度</div>
+        <div class="redundancy">
+          <div class="lvl">{{ a.redundancy.value }}</div>
+          <div class="meter">
+            <div class="track"><div class="fill" data-w="{{ a.redundancy.value * 100 | round(1) }}"></div></div>
+            <div style="font-size:12.5px;color:var(--ink-3);margin-top:8px">水平：<b style="color:var(--ink)">{{ a.redundancy.level }}</b>（{{ "偏重复" if a.redundancy.value >= 0.7 else "适中" if a.redundancy.value >= 0.5 else "较多元" }}）</div>
+          </div>
+        </div>
+        {% if a.albums.top %}
+        <div style="margin-top:18px; padding-top:14px; border-top:1px dashed var(--line)">
+          <div class="card-title" style="font-size:14px">精选专辑</div>
+          {% for al in a.albums.top[:6] %}
+          <div class="bar-row">
+            <div class="lab">{{ al.name }}</div>
+            <div class="track"><div class="fill blue" data-w="{{ (al.count / a.albums.top[0].count * 100) | round(1) }}"></div></div>
+            <div class="val">{{ al.count }}</div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+        <div style="margin-top:18px; padding-top:14px; border-top:1px dashed var(--line)">
+          <div class="card-title" style="font-size:14px">集中度 HHI（0 分散 → 1 专一）</div>
+          <div class="legend" style="gap:7px;margin-top:8px">
+            <div class="legend-row" style="font-size:12.5px"><span class="sw" style="background:var(--orange)"></span><span class="nm">歌手</span><span class="pct">{{ a.concentration.artist }}</span></div>
+            <div class="legend-row" style="font-size:12.5px"><span class="sw" style="background:var(--blue)"></span><span class="nm">专辑</span><span class="pct">{{ a.concentration.album }}</span></div>
+            <div class="legend-row" style="font-size:12.5px"><span class="sw" style="background:var(--green)"></span><span class="nm">语言</span><span class="pct">{{ a.concentration.language }}</span></div>
+            <div class="legend-row" style="font-size:12.5px"><span class="sw" style="background:#a04a63"></span><span class="nm">曲风</span><span class="pct">{{ a.concentration.genre }}</span></div>
+            <div class="legend-row" style="font-size:12.5px"><span class="sw" style="background:#8a8478"></span><span class="nm">年代</span><span class="pct">{{ a.concentration.year }}</span></div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- 雷达 + 词云 -->
+    <div class="grid2" style="margin-bottom:18px">
+      <div class="card reveal d4">
+        <div class="card-title">风格雷达</div>
+        <div class="card-sub">六维画像，越外缘越突出</div>
+        {% if radar_svg %}<div class="radar-svg">{{ radar_svg | safe }}</div>{% endif %}
+      </div>
+      <div class="card reveal d5">
+        <div class="card-title">词云 · 歌单关键词</div>
+        <div class="card-sub">{{ "AI 语义关键词" if cloud_items is defined and cloud_items }}</div>
+        {% if cloud_items %}
+        <div class="cloud">
+          {% for c in cloud_items %}
+          <span style="font-size:{{ c.size }}px; color:hsl({{ (loop.index * 53) % 360 }}, 28%, {{ 26 + (loop.index % 3) * 7 }}%); animation-delay:{{ (loop.index % 6) * 0.3 }}s">{{ c.word }}</span>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="sec-sub">暂无足够文本提取关键词。</p>
+        {% endif %}
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ================= Top30 ================= -->
+  <section id="top30" class="reveal">
+    <div class="sec-head"><span class="no">C.</span><h2>精选曲目 Top 30</h2></div>
+    <div class="card" style="padding: 10px 14px 22px;">
+      <div style="overflow-x:auto">
+      <table class="rank-table">
+        <thead>
+          <tr><th>#</th><th>曲目</th><th>歌手</th><th>专辑</th><th>时长</th><th>年份</th><th>热度</th></tr>
+        </thead>
+        <tbody>
+          {% for t in a.top_songs %}
+          <tr>
+            <td>
+              <span class="rank-badge {% if t.rank == 1 %}top1{% elif t.rank == 2 %}top2{% elif t.rank == 3 %}top3{% endif %}">{{ "%02d"|format(t.rank) }}</span>
+            </td>
+            <td class="song-t">
+              {% if t.url %}<a href="{{ t.url }}" target="_blank" rel="noopener">{{ t.title }}</a>
+              {% else %}{{ t.title }}{% endif %}
+            </td>
+            <td class="dim">{{ t.artists }}</td>
+            <td class="dim">{{ t.album }}</td>
+            <td class="dim" style="font-family:var(--mono)">{{ t.duration }}</td>
+            <td class="dim">{{ t.year }}</td>
+            <td class="dim">
+              {% if t.popularity != '-' %}
+              <span class="pop-cell">
+                <span class="pop-dot" style="background:{{ '#4a7c59' if t.popularity|int >= 60 else '#d96c2f' if t.popularity|int >= 40 else '#a04a63' }}"></span>
+                {{ t.popularity }}
+              </span>
+              {% else %}-{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div><b>歌单档案</b> · Playlist Dossier</div>
+    <div>{{ platform_name }} · {{ pl.name }}</div>
+    <div>playlist-analysis skill · {{ fetched_at }}</div>
+  </footer>
+</div>
+
+<button class="to-top" id="toTop" aria-label="回到顶部">↑</button>
+
+<script>
+/* ---------- 滚动进度 + 顶栏 + 回到顶部 ---------- */
+const bar = document.getElementById('bar');
+const nav = document.getElementById('nav');
+const toTop = document.getElementById('toTop');
+function onScroll() {
+  const st = window.scrollY;
+  const dh = document.documentElement.scrollHeight - window.innerHeight;
+  bar.style.width = (dh > 0 ? (st / dh) * 100 : 0) + '%';
+  nav.classList.toggle('scrolled', st > 30);
+  toTop.classList.toggle('show', st > 500);
+}
+window.addEventListener('scroll', onScroll, { passive: true });
+onScroll();
+toTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+/* ---------- 滚动显现 ---------- */
+const io = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+}, { threshold: 0.08 });
+document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+/* ---------- 条形图生长 ---------- */
+const bio = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      const fill = e.target;
+      requestAnimationFrame(() => { fill.style.width = (fill.dataset.w || 0) + '%'; });
+      bio.unobserve(fill);
+    }
+  });
+}, { threshold: 0.3 });
+document.querySelectorAll('.fill').forEach(el => bio.observe(el));
+
+/* ---------- 数字滚动 ---------- */
+const countUp = (el) => {
+  const target = parseFloat(el.dataset.count);
+  const dur = 1200, t0 = performance.now();
+  const tick = (t) => {
+    const p = Math.min(1, (t - t0) / dur);
+    const eased = 1 - Math.pow(1 - p, 3);
+    el.textContent = Math.round(target * eased).toLocaleString('zh-CN');
+    if (p < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+};
+const cio = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting && e.target.dataset.count !== undefined) { countUp(e.target); cio.unobserve(e.target); }
+  });
+}, { threshold: 0.6 });
+document.querySelectorAll('[data-count]').forEach(el => cio.observe(el));
+
+/* ---------- 导航高亮 ---------- */
+const secs = document.querySelectorAll('section[id]');
+const linkMap = {};
+document.querySelectorAll('.links a').forEach(a => { linkMap[a.getAttribute('href').slice(1)] = a; });
+const navIO = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      document.querySelectorAll('.links a').forEach(a => a.classList.remove('active'));
+      const el = linkMap[e.target.id]; if (el) el.classList.add('active');
+    }
+  });
+}, { rootMargin: '-35% 0px -55% 0px' });
+secs.forEach(s => navIO.observe(s));
+
+/* ---------- 热力图：悬停显示数值 tooltip ---------- */
+document.querySelectorAll('.hm-cell').forEach((cell, i) => {
+  cell.style.animationDelay = (i * 0.015) + 's';
+  let tip = null;
+  cell.addEventListener('mouseenter', () => {
+    tip = document.createElement('div');
+    tip.textContent = cell.dataset.cnt + ' 首';
+    tip.style.cssText = 'position:fixed;background:#22201c;color:#f4efe6;padding:6px 12px;' +
+      'font-size:13px;border-radius:2px;pointer-events:none;z-index:99;font-family:var(--serif);' +
+      'opacity:0;transition:opacity .15s ease';
+    document.body.appendChild(tip);
+    requestAnimationFrame(() => { tip.style.opacity = '1'; });
+  });
+  cell.addEventListener('mousemove', (e) => {
+    if (tip) { tip.style.left = (e.clientX + 14) + 'px'; tip.style.top = (e.clientY + 14) + 'px'; }
+  });
+  cell.addEventListener('mouseleave', () => {
+    if (tip) { tip.remove(); tip = null; }
+  });
+});
+
+/* ---------- 合作网络：节点 hover 高亮相连边，淡入交错 ---------- */
+(function () {
+  const nodes = document.querySelectorAll('.net-node');
+  const lines = document.querySelectorAll('#network-svg line, svg[data-net] line');
+  const svg = document.querySelector('[data-net]');
+  const allLines = svg ? svg.querySelectorAll('line') : [];
+  allLines.forEach((l, i) => { l.style.animationDelay = (0.2 + i * 0.03) + 's'; });
+  nodes.forEach((nd, i) => {
+    nd.style.animationDelay = (0.1 + i * 0.03) + 's';
+    nd.addEventListener('mouseenter', () => {
+      const name = nd.dataset.name;
+      allLines.forEach(l => {
+        const hit = l.dataset.a === name || l.dataset.b === name;
+        l.style.strokeOpacity = hit ? '0.95' : '0.07';
+        l.style.strokeWidth = hit ? (parseFloat(l.getAttribute('stroke-width')) + 1.5) + '' : l.getAttribute('stroke-width');
+      });
+    });
+    nd.addEventListener('mouseleave', () => {
+      allLines.forEach(l => {
+        l.style.strokeOpacity = l.getAttribute('stroke-opacity');
+        l.style.strokeWidth = l.getAttribute('stroke-width');
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>
