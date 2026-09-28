@@ -1,5 +1,9 @@
 # 歌单深度分析（Playlist Analysis）🎧
 
+> **English**: Fetches playlists from NetEase Cloud Music / QQ Music / Kugou / Kuwo and runs an AI-driven multi-dimensional analysis, outputting a vinyl-magazine-style `report.md` + `report.html` plus `analysis.json`.
+> Scripts handle only the deterministic work (fetching, chunking, and pure statistics such as duration / era / language / artist frequency / HHI), while AI subagents do the semantic tagging (genre / mood / type / scene) — 20+ analysis dimensions in total.
+> **Run**: Python 3.9+ with `requests` + `jinja2`; three stages: `python3 scripts/analyze_playlist.py "<playlist-url>" -o <dir> --data-only`, then `python3 scripts/merge_ai.py <dir>`, then re-run `analyze_playlist.py` with `--ai-result` to render.
+
 抓取主流音乐平台歌单（网易云 / QQ音乐 / 酷狗 / 酷我）→ **AI 主导的多维度分析** → 输出 `report.md` + `report.html`（黑胶杂志风、高动效）+ `analysis.json`。
 
 ## 一句话简介
